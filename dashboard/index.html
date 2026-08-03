@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FireSentinel — Monitoring Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #17181a;
+    --panel: #201f22;
+    --panel-raised: #262529;
+    --hairline: #37363b;
+    --text-primary: #eae7e1;
+    --text-dim: #8d8a86;
+    --amber: #d98f2b;
+    --amber-dim: #6b5426;
+    --red: #c53d34;
+    --red-dim: #5c2721;
+    --green: #4f9d6e;
+    --green-dim: #274a35;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text-primary);
+    font-family:var(--sans);
+    min-height:100vh;
+    background-image:
+      radial-gradient(ellipse at top left, rgba(217,143,43,0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(197,61,52,0.03), transparent 50%);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding-bottom:18px;margin-bottom:22px;border-bottom:1px solid var(--hairline);
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .brand .mark{
+    font-family:var(--mono);font-weight:700;font-size:22px;letter-spacing:2px;
+    color:var(--text-primary);
+  }
+  .brand .mark span{color:var(--amber);}
+  .brand .sub{font-size:12.5px;color:var(--text-dim);letter-spacing:0.4px;}
+  .conn{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);box-shadow:0 0 0 3px rgba(255,255,255,0.03);}
+  .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .dot.demo{background:var(--amber);box-shadow:0 0 8px var(--amber);}
+
+  .annunciator{
+    border-radius:6px;padding:22px 26px;margin-bottom:22px;
+    display:flex;justify-content:space-between;align-items:center;
+    border:1px solid var(--hairline);
+    transition:background 0.4s ease, border-color 0.4s ease;
+    background:var(--panel-raised);
+  }
+  .annunciator.normal{background:linear-gradient(135deg, var(--green-dim), var(--panel-raised) 70%);border-color:var(--green);}
+  .annunciator.warning{background:linear-gradient(135deg, var(--amber-dim), var(--panel-raised) 70%);border-color:var(--amber);}
+  .annunciator.fire{background:linear-gradient(135deg, var(--red-dim), var(--panel-raised) 70%);border-color:var(--red);animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(197,61,52,0.35);}50%{box-shadow:0 0 0 10px rgba(197,61,52,0);}}
+  .annunciator .label-group{display:flex;flex-direction:column;gap:4px;}
+  .annunciator .eyebrow{font-family:var(--mono);font-size:11px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase;}
+  .annunciator .status-text{font-family:var(--mono);font-size:34px;font-weight:700;letter-spacing:1px;}
+  .annunciator.normal .status-text{color:var(--green);}
+  .annunciator.warning .status-text{color:var(--amber);}
+  .annunciator.fire .status-text{color:var(--red);}
+  .annunciator .confidence{font-family:var(--mono);font-size:13px;color:var(--text-dim);text-align:right;}
+  .annunciator .confidence b{color:var(--text-primary);font-size:20px;display:block;}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  @media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr);}}
+  .tile{
+    background:var(--panel);border:1px solid var(--hairline);border-radius:6px;
+    padding:16px 18px;position:relative;overflow:hidden;
+  }
+  .tile .tlabel{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;}
+  .tile .tval{font-family:var(--mono);font-size:28px;font-weight:600;line-height:1;}
+  .tile .tunit{font-family:var(--mono);font-size:13px;color:var(--text-dim);margin-left:4px;}
+  .tile .bar{height:3px;background:var(--hairline);border-radius:2px;margin-top:14px;overflow:hidden;}
+  .tile .bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease, background 0.5s ease;}
+
+  .panel-block{
+    background:var(--panel);border:1px solid var(--hairline);border-radius:6px;
+    padding:18px 20px;margin-bottom:22px;
+  }
+  .panel-block h3{margin:0 0 14px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.3px;font-weight:600;}
+  canvas{max-height:220px;}
+
+  .log-block{background:var(--panel);border:1px solid var(--hairline);border-radius:6px;padding:0;overflow:hidden;}
+  .log-block h3{margin:0;padding:16px 20px 12px;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.3px;font-weight:600;border-bottom:1px solid var(--hairline);}
+  .log-rows{max-height:220px;overflow-y:auto;}
+  .log-row{
+    display:grid;grid-template-columns:130px 90px 1fr;gap:12px;
+    padding:9px 20px;font-family:var(--mono);font-size:12.5px;
+    border-bottom:1px solid rgba(255,255,255,0.03);
+  }
+  .log-row .t{color:var(--text-dim);}
+  .log-row .s{font-weight:600;}
+  .log-row .s.normal{color:var(--green);}
+  .log-row .s.warning{color:var(--amber);}
+  .log-row .s.fire{color:var(--red);}
+  .log-row .d{color:var(--text-dim);}
+
+  footer{margin-top:24px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="mark">FIRE<span>SENTINEL</span></div>
+      <div class="sub">IoT fire detection &amp; monitoring panel</div>
+    </div>
+    <div class="conn"><span class="dot" id="connDot"></span><span id="connLabel">Connecting…</span></div>
+  </header>
+
+  <div class="annunciator normal" id="annunciator">
+    <div class="label-group">
+      <div class="eyebrow">System status</div>
+      <div class="status-text" id="statusText">NORMAL</div>
+    </div>
+    <div class="confidence"><b id="confVal">—</b>model confidence</div>
+  </div>
+
+  <div class="grid">
+    <div class="tile">
+      <div class="tlabel">Flame sensor</div>
+      <div><span class="tval" id="flameVal">—</span><span class="tunit">/4095</span></div>
+      <div class="bar"><div class="bar-fill" id="flameBar" style="width:0%;background:var(--green);"></div></div>
+    </div>
+    <div class="tile">
+      <div class="tlabel">Smoke / gas</div>
+      <div><span class="tval" id="smokeVal">—</span><span class="tunit">ppm</span></div>
+      <div class="bar"><div class="bar-fill" id="smokeBar" style="width:0%;background:var(--green);"></div></div>
+    </div>
+    <div class="tile">
+      <div class="tlabel">Temperature</div>
+      <div><span class="tval" id="tempVal">—</span><span class="tunit">°C</span></div>
+      <div class="bar"><div class="bar-fill" id="tempBar" style="width:0%;background:var(--green);"></div></div>
+    </div>
+    <div class="tile">
+      <div class="tlabel">Humidity</div>
+      <div><span class="tval" id="humVal">—</span><span class="tunit">%</span></div>
+      <div class="bar"><div class="bar-fill" id="humBar" style="width:0%;background:var(--green);"></div></div>
+    </div>
+  </div>
+
+  <div class="panel-block">
+    <h3>Smoke &amp; temperature trend</h3>
+    <canvas id="trendChart"></canvas>
+  </div>
+
+  <div class="log-block">
+    <h3>Event log</h3>
+    <div class="log-rows" id="logRows"></div>
+  </div>
+
+  <footer>FireSentinel · ESP32 + Decision Tree (edge) + Random Forest (cloud) · MQTT / ThingSpeak</footer>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+const WS_URL = "ws://localhost:8000/ws";
+const DEMO_MODE_FALLBACK_MS = 3000;
+
+const STATUS_META = {
+  Normal:  {cls:"normal",  color:"var(--green)"},
+  Warning: {cls:"warning", color:"var(--amber)"},
+  Fire:    {cls:"fire",    color:"var(--red)"}
+};
+
+const el = id => document.getElementById(id);
+const annunciator = el("annunciator");
+const statusText = el("statusText");
+const confVal = el("confVal");
+const connDot = el("connDot");
+const connLabel = el("connLabel");
+const logRows = el("logRows");
+
+const ctx = el("trendChart").getContext("2d");
+const trendChart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [
+      { label: "Smoke (ppm)", data: [], borderColor: "#d98f2b", backgroundColor: "rgba(217,143,43,0.08)", tension: 0.3, pointRadius: 0, yAxisID: "y" },
+      { label: "Temp (°C)", data: [], borderColor: "#c53d34", backgroundColor: "rgba(197,61,52,0.08)", tension: 0.3, pointRadius: 0, yAxisID: "y1" }
+    ]
+  },
+  options: {
+    responsive: true,
+    animation: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: { legend: { labels: { color: "#8d8a86", font: { family: "IBM Plex Mono", size: 11 } } } },
+    scales: {
+      x: { ticks: { color: "#8d8a86", maxTicksLimit: 6, font: { family: "IBM Plex Mono", size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+      y: { position: "left", ticks: { color: "#8d8a86", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+      y1: { position: "right", ticks: { color: "#8d8a86", font: { size: 10 } }, grid: { display: false } }
+    }
+  }
+});
+
+function setBar(id, pct, color) {
+  const bar = el(id);
+  bar.style.width = Math.max(2, Math.min(100, pct)) + "%";
+  bar.style.background = color;
+}
+
+function pushLog(reading) {
+  const meta = STATUS_META[reading.rf_status_label] || STATUS_META.Normal;
+  const row = document.createElement("div");
+  row.className = "log-row";
+  const time = new Date(reading.timestamp || Date.now()).toLocaleTimeString();
+  row.innerHTML = `<span class="t">${time}</span><span class="s ${meta.cls}">${reading.rf_status_label}</span><span class="d">flame ${Math.round(reading.flame_value)} · smoke ${Math.round(reading.smoke_ppm)}ppm · ${reading.temperature_c.toFixed(1)}°C</span>`;
+  logRows.prepend(row);
+  while (logRows.children.length > 40) logRows.removeChild(logRows.lastChild);
+}
+
+function updateDashboard(reading) {
+  const label = reading.rf_status_label || "Normal";
+  const meta = STATUS_META[label] || STATUS_META.Normal;
+
+  annunciator.className = "annunciator " + meta.cls;
+  statusText.textContent = label.toUpperCase();
+  confVal.textContent = reading.rf_confidence ? (reading.rf_confidence * 100).toFixed(1) + "%" : "—";
+
+  el("flameVal").textContent = Math.round(reading.flame_value);
+  el("smokeVal").textContent = Math.round(reading.smoke_ppm);
+  el("tempVal").textContent = reading.temperature_c.toFixed(1);
+  el("humVal").textContent = reading.humidity_pct.toFixed(1);
+
+  setBar("flameBar", 100 - (reading.flame_value / 4095) * 100, reading.flame_value < 1500 ? "var(--red)" : "var(--green)");
+  setBar("smokeBar", (reading.smoke_ppm / 4000) * 100, reading.smoke_ppm > 1200 ? "var(--red)" : reading.smoke_ppm > 400 ? "var(--amber)" : "var(--green)");
+  setBar("tempBar", (reading.temperature_c / 100) * 100, reading.temperature_c > 45 ? "var(--red)" : reading.temperature_c > 32 ? "var(--amber)" : "var(--green)");
+  setBar("humBar", reading.humidity_pct, "var(--green)");
+
+  const t = new Date(reading.timestamp || Date.now()).toLocaleTimeString();
+  trendChart.data.labels.push(t);
+  trendChart.data.datasets[0].data.push(reading.smoke_ppm);
+  trendChart.data.datasets[1].data.push(reading.temperature_c);
+  if (trendChart.data.labels.length > 30) {
+    trendChart.data.labels.shift();
+    trendChart.data.datasets[0].data.shift();
+    trendChart.data.datasets[1].data.shift();
+  }
+  trendChart.update();
+
+  pushLog(reading);
+}
+
+let liveConnected = false;
+
+function tryLiveConnection() {
+  try {
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      liveConnected = true;
+      connDot.className = "dot live";
+      connLabel.textContent = "Live — connected to backend";
+    };
+    ws.onmessage = (evt) => updateDashboard(JSON.parse(evt.data));
+    ws.onerror = () => {};
+    ws.onclose = () => {
+      liveConnected = false;
+      if (!demoRunning) startDemoMode();
+    };
+  } catch (e) { /* fall through to demo mode */ }
+}
+
+let demoRunning = false;
+function startDemoMode() {
+  if (demoRunning) return;
+  demoRunning = true;
+  connDot.className = "dot demo";
+  connLabel.textContent = "Demo mode — simulated readings";
+
+  let phase = 0;
+  setInterval(() => {
+    if (liveConnected) return;
+    phase = (phase + 1) % 40;
+    let flame, smoke, temp, hum, label, conf;
+
+    if (phase < 25) {
+      flame = 3200 + Math.random() * 800; smoke = 120 + Math.random() * 100;
+      temp = 23 + Math.random() * 3; hum = 50 + Math.random() * 10;
+      label = "Normal"; conf = 0.97 + Math.random() * 0.03;
+    } else if (phase < 33) {
+      flame = 2000 + Math.random() * 800; smoke = 500 + Math.random() * 300;
+      temp = 33 + Math.random() * 6; hum = 38 + Math.random() * 8;
+      label = "Warning"; conf = 0.88 + Math.random() * 0.1;
+    } else {
+      flame = 300 + Math.random() * 700; smoke = 2000 + Math.random() * 1500;
+      temp = 55 + Math.random() * 20; hum = 18 + Math.random() * 10;
+      label = "Fire"; conf = 0.9 + Math.random() * 0.09;
+    }
+
+    updateDashboard({
+      timestamp: new Date().toISOString(),
+      flame_value: flame, smoke_ppm: smoke, temperature_c: temp, humidity_pct: hum,
+      rf_status_label: label, rf_confidence: conf
+    });
+  }, 1200);
+}
+
+tryLiveConnection();
+setTimeout(() => { if (!liveConnected) startDemoMode(); }, DEMO_MODE_FALLBACK_MS);
+</script>
+</body>
+</html>
