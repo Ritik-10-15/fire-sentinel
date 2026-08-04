@@ -27,10 +27,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # ---------------- CONFIG ----------------
-MQTT_BROKER = "YOUR_BROKER_ADDRESS"   # same broker the ESP32 connects to
-MQTT_PORT = 8883
-MQTT_USER = "YOUR_MQTT_USERNAME"
-MQTT_PASS = "YOUR_MQTT_PASSWORD"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+MQTT_BROKER = os.getenv("MQTT_BROKER")
+MQTT_PORT = int(os.getenv("MQTT_PORT", 8883))
+MQTT_USER = os.getenv("MQTT_USER")
+MQTT_PASS = os.getenv("MQTT_PASS")
 MQTT_TOPIC = "firesentinel/sensors"
 
 STATUS_LABELS = {0: "Normal", 1: "Warning", 2: "Fire"}
