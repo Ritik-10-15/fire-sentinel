@@ -96,7 +96,7 @@ def broadcast_sync(payload: dict):
 # ---------------- MQTT ----------------
 def on_connect(client, userdata, flags, rc):
     print(f"[MQTT] Connected with result code {rc}")
-    client.subscribe(MQTT_TOPIC)
+    client.subscribe(MQTT_TOPIC, qos=1)
 
 
 def on_message(client, userdata, msg):
@@ -119,7 +119,7 @@ def on_message(client, userdata, msg):
 
 
 def start_mqtt_thread():
-    client = mqtt.Client()
+    client =mqtt.Client()
     client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set()  # remove if using plain (unencrypted) port 1883
     client.on_connect = on_connect

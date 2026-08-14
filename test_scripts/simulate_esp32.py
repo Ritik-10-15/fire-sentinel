@@ -68,7 +68,7 @@ try:
             "local_status": {"Normal": 0, "Warning": 1, "Fire": 2}[scenario]
         }
 
-        client.publish(MQTT_TOPIC, json.dumps(payload))
+        client.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
         print(f"[{scenario}] Published: {payload}")
 
         time.sleep(3)
