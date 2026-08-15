@@ -11,6 +11,7 @@ simulator that publishes realistic sensor data over a real MQTT broker, standing
 for physical hardware. The ESP32 firmware is fully written and hardware-ready, but
 has not been flashed to a physical device — the focus of this project is the
 software architecture, machine learning pipeline, and real-time systems design.
+<img width="1000" height="497" alt="firesentinel_demo" src="https://github.com/user-attachments/assets/c250b370-cd03-4c08-9500-fc87b866ea9b" />
 
 ## Why this architecture
 
